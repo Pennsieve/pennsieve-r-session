@@ -1,0 +1,10 @@
+data/output/*
+!data/output/.gitkeep
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.Rhistory
+.RData
+.Rproj.user/
+.idea/
+.venv/

@@ -1,0 +1,22 @@
+{
+  "name": "r-notebook",
+  "summary": "Open an interactive R notebook on selected files",
+  "description": "Launches a live JupyterLab server with an R (IRkernel) kernel as a workflow step. Selected files are staged onto EFS (input/) exactly like a normal processor; the user works in the notebook in the browser; the workflow pauses (Step Functions waitForTaskToken) until the session is closed or goes idle, then resumes and tears the task down. Outputs written to output/ persist on EFS. Secure tier; runs on Fargate.",
+  "organizationId": "REPLACE_WITH_ORG_ID",
+  "processors": [
+    {
+      "id": "target-files",
+      "type": "data-source"
+    },
+    {
+      "id": "r-session",
+      "type": "processor",
+      "sourceUrl": "https://github.com/Pennsieve/pennsieve-r-session",
+      "tag": "v0.1.0",
+      "computeType": "standard",
+      "interactive": true,
+      "sessionType": "r",
+      "dependsOn": ["target-files"]
+    }
+  ]
+}

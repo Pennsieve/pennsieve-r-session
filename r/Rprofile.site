@@ -1,0 +1,42 @@
+# Pennsieve interactive-session conveniences, auto-sourced into every R session.
+#
+# This is R's site profile (pointed at by the R_PROFILE env var in the Dockerfile),
+# so it runs when the IRkernel R process starts — every notebook gets these names
+# with no setup, mirroring the Python session's 00-pennsieve.py startup script.
+#
+#   INPUT_DIR          files staged from previous workflow steps (read here)
+#   OUTPUT_DIR         save files here -> passed to the next workflow step
+#   LAYERS_DIR         mounted persistent layers, if any
+#   save_output(name)  -> path string inside OUTPUT_DIR (creates it if needed)
+#
+# Convenience + convention, not a permission boundary — the kernel can read/write
+# anywhere on the EFS mount. "input" vs "output" is the workflow contract, not an
+# enforced read-only/read-write split.
+
+local({
+  env_dir <- function(var) {
+    v <- Sys.getenv(var, unset = "")
+    if (nzchar(v)) v else NA_character_
+  }
+
+  g <- globalenv()
+  assign("INPUT_DIR", env_dir("INPUT_DIR"), envir = g)
+  assign("OUTPUT_DIR", env_dir("OUTPUT_DIR"), envir = g)
+  assign("LAYERS_DIR", env_dir("LAYERS_DIR"), envir = g)
+
+  # Make sure OUTPUT_DIR exists so file.path(OUTPUT_DIR, "x") and write.csv(...)
+  # just work. Best-effort — never block kernel startup.
+  out <- get("OUTPUT_DIR", envir = g)
+  if (!is.na(out)) {
+    try(dir.create(out, recursive = TRUE, showWarnings = FALSE), silent = TRUE)
+  }
+
+  # save_output("results.csv") -> path inside OUTPUT_DIR (files saved there pass
+  # to the next workflow step). Example: write.csv(df, save_output("results.csv"))
+  assign("save_output", function(name) {
+    out <- get("OUTPUT_DIR", envir = globalenv())
+    if (is.na(out) || !nzchar(out)) stop("OUTPUT_DIR is not set for this session")
+    dir.create(out, recursive = TRUE, showWarnings = FALSE)
+    file.path(out, name)
+  }, envir = g)
+})

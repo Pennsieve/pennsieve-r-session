@@ -1,0 +1,12 @@
+services:
+  r-session:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - dev.env
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data/input:/data/input:ro
+      - ./data/output:/data/output
