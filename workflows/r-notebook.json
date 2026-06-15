@@ -12,7 +12,7 @@
       "id": "r-session",
       "type": "processor",
       "sourceUrl": "https://github.com/Pennsieve/pennsieve-r-session",
-      "tag": "v0.1.0",
+      "tag": "v0.1.1",
       "computeType": "standard",
       "interactive": true,
       "sessionType": "r",

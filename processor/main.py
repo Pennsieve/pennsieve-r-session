@@ -97,6 +97,10 @@ def build_jupyter_cmd(cfg):
         # extension at boot, but no language servers are installed, so it only
         # adds startup time for zero features. Disable it at launch.
         '--ServerApp.jpserver_extensions={"jupyter_lsp": False}',
+        # This is the R session image, so the R kernel is the default — a client
+        # that starts a kernel without naming one (or hits Jupyter's built-in
+        # "python3" default) gets R, not Python.
+        "--MappingKernelManager.default_kernel_name=ir",
         # Idle reclaim: stop the server when nothing is running.
         f"--ServerApp.shutdown_no_activity_timeout={idle}",
         f"--MappingKernelManager.cull_idle_timeout={idle}",

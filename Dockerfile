@@ -29,6 +29,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN R -e "install.packages('IRkernel', repos='https://cloud.r-project.org')" \
     && R -e "IRkernel::installspec(user = FALSE)"
 
+# ipykernel ships a "python3" kernelspec transitively with jupyterlab. This is an
+# R session image, so drop it — JupyterLab then offers only R, and nothing can
+# accidentally launch Python. (|| true: harmless if it isn't present.)
+RUN jupyter kernelspec remove -f python3 || true
+
 COPY processor/ /app/processor/
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
