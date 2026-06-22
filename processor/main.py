@@ -142,6 +142,56 @@ def setup_workspace(cfg):
             log.warning("could not symlink %s -> %s: %s", link, target, e)
 
 
+def write_environment_freeze():
+    """Write this session's resolved environment under {LOGS_DIR}/environment/ so
+    CleanupEFS can archive it into the run's S3 log assets. Captures the FULL
+    environment the session actually ran in — base image + mounted layers + live
+    installs — for both R (run.R-packages.txt) and the python venv hosting the
+    kernel (run.requirements.txt). Best-effort: never fail the session over provenance.
+    """
+    logs_dir = os.environ.get("LOGS_DIR", "")
+    if not logs_dir:
+        return
+    env_dir = os.path.join(logs_dir, "environment")
+    try:
+        os.makedirs(env_dir, exist_ok=True)
+    except Exception as e:  # noqa: BLE001
+        log.warning("failed to create environment dir %s: %s", env_dir, e)
+        return
+
+    # R packages — the meaningful environment for an R session.
+    try:
+        r_expr = (
+            'ip <- installed.packages()[, c("Package", "Version")]; '
+            'writeLines(apply(ip, 1, function(r) paste0(r[[1]], "==", r[[2]])))'
+        )
+        result = subprocess.run(
+            ["Rscript", "-e", r_expr], capture_output=True, text=True, timeout=60
+        )
+        if result.returncode == 0:
+            with open(os.path.join(env_dir, "run.R-packages.txt"), "w") as f:
+                f.write(result.stdout)
+            log.info("wrote R package list to %s/run.R-packages.txt", env_dir)
+        else:
+            log.warning("Rscript installed.packages failed (rc=%d): %s", result.returncode, result.stderr.strip())
+    except Exception as e:  # noqa: BLE001
+        log.warning("failed to write R package list: %s", e)
+
+    # pip freeze — the venv hosting JupyterLab + IRkernel (and any python the user added).
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "freeze"], capture_output=True, text=True, timeout=60
+        )
+        if result.returncode == 0:
+            with open(os.path.join(env_dir, "run.requirements.txt"), "w") as f:
+                f.write(result.stdout)
+            log.info("wrote pip freeze to %s/run.requirements.txt", env_dir)
+        else:
+            log.warning("pip freeze failed (rc=%d): %s", result.returncode, result.stderr.strip())
+    except Exception as e:  # noqa: BLE001
+        log.warning("failed to write pip freeze: %s", e)
+
+
 def main():
     cfg = get_config()
     setup_workspace(cfg)
@@ -189,6 +239,11 @@ def main():
 
     rc = proc.wait()
     stop.set()
+
+    # Capture the full resolved environment this session ran in (R packages +
+    # the python venv hosting the kernel, including any live installs) before we
+    # return the token and the run's EFS data is cleaned up. Best-effort.
+    write_environment_freeze()
 
     if platform_terminated.is_set():
         log.info("Exited due to platform stop; not returning the task token")
