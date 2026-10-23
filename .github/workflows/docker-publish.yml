@@ -24,6 +24,7 @@ jobs:
           python-version: "3.12"
       # Cheap sanity that the processor code compiles before we build/push.
       - run: python -m py_compile processor/*.py
+      - run: python -m unittest discover -s tests -t . -v
 
   publish:
     needs: build

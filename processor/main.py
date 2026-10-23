@@ -28,7 +28,7 @@ import sys
 import threading
 
 from processor import metadata
-from processor.lifecycle import TaskTokenClient
+from processor.lifecycle import TaskTokenClient, TokenGone
 
 logging.basicConfig(
     level=logging.INFO,
@@ -214,6 +214,7 @@ def main():
 
     stop = threading.Event()
     platform_terminated = threading.Event()
+    token_gone = threading.Event()
 
     def on_sigterm(_signum, _frame):
         # Platform-initiated stop (cancel, or teardown after we already resumed
@@ -231,9 +232,17 @@ def main():
                 return
             try:
                 tokens.heartbeat()
-            except Exception as e:  # noqa: BLE001 — invalid token => execution gone; stop trying
-                log.warning("heartbeat failed (stopping heartbeat loop): %s", e)
+            except TokenGone as e:
+                # The execution ended without us (stopped, failed, timed out):
+                # nothing will resume from this session, so shut down now
+                # rather than idle on until the idle timeout.
+                log.info("task token no longer valid (%s); shutting down", e)
+                token_gone.set()
+                stop.set()
+                proc.terminate()
                 return
+            except Exception as e:  # noqa: BLE001 — transient; keep heartbeating
+                log.warning("heartbeat failed (will retry): %s", e)
 
     threading.Thread(target=heartbeat_loop, daemon=True).start()
 
@@ -247,6 +256,10 @@ def main():
 
     if platform_terminated.is_set():
         log.info("Exited due to platform stop; not returning the task token")
+        sys.exit(0)
+
+    if token_gone.is_set():
+        log.info("Exited because the execution ended; not returning the task token")
         sys.exit(0)
 
     if rc == 0:

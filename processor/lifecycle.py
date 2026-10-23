@@ -19,6 +19,16 @@ import logging
 
 log = logging.getLogger("r-session")
 
+# Step Functions errors meaning the task token can never be used again: the
+# execution ended (stopped, failed, timed out) or the token was already
+# returned. Anything else (throttling, a network error) is transient.
+TOKEN_GONE_ERRORS = frozenset({"TaskTimedOut", "TaskDoesNotExist", "InvalidToken"})
+
+
+class TokenGone(Exception):
+    """The task token is no longer valid: the workflow has moved on without
+    this session, so nothing will ever resume from it."""
+
 
 class TaskTokenClient:
     def __init__(self, token, region, task_arn):
@@ -35,11 +45,16 @@ class TaskTokenClient:
         return bool(self._sfn and self.token)
 
     def heartbeat(self):
-        """Forward a heartbeat. Raises on an invalid/expired token so the caller
-        can stop the loop (the execution is gone)."""
+        """Forward a heartbeat. Raises TokenGone when the token is no longer
+        valid (the execution is gone), and the original error otherwise."""
         if not self.enabled:
             return
-        self._sfn.send_task_heartbeat(taskToken=self.token)
+        try:
+            self._sfn.send_task_heartbeat(taskToken=self.token)
+        except Exception as e:  # noqa: BLE001 — classified below
+            if _error_code(e) in TOKEN_GONE_ERRORS:
+                raise TokenGone(str(e)) from e
+            raise
 
     def success(self, closed_by="session-ended"):
         if not self.enabled:
@@ -65,3 +80,11 @@ class TaskTokenClient:
             log.info("sent task failure: %s", reason)
         except Exception as e:  # noqa: BLE001
             log.warning("send_task_failure failed: %s", e)
+
+
+def _error_code(exc):
+    """The AWS error code of a botocore ClientError, else ""."""
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        return response.get("Error", {}).get("Code", "")
+    return ""
