@@ -73,7 +73,7 @@ write.csv(df, save_output("results.csv"))
 | `INPUT_DIR` / `OUTPUT_DIR` | platform | EFS paths (same as any processor) |
 | `EXECUTION_RUN_ID` | platform | workflow run id |
 | `TASK_TOKEN` | ASL `runTask.waitForTaskToken` | the token this container returns on close |
-| `SESSION_TYPE` | ASL | `r` |
+| `SESSION_TYPE` | ASL | `jupyter` (the language is app.yml's `runtime.kernel: r`) |
 | `REGION` / `AWS_REGION` | platform | for the Step Functions client |
 | `NOTEBOOK_ROOT` | optional | JupyterLab root dir (default: parent of `INPUT_DIR`) |
 | `JUPYTER_IP` / `JUPYTER_PORT` / `JUPYTER_BASE_URL` | optional | bind + base path (default `127.0.0.1:8888`, `/`) |

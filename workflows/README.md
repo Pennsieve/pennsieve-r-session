@@ -14,7 +14,7 @@ processor:
   requires the wait logic. The provisioner branches any node with this flag onto
   an `ecs:runTask.waitForTaskToken` step (pause → resume on close → teardown),
   regardless of `sessionType`.
-- `"sessionType": "r"` — selects the container image + frontend kernel; it does
+- `"sessionType": "jupyter"` (the R language is app.yml's `runtime.kernel: r`) — selects the frontend; it does
   **not** change the wait logic. (The Python session uses `"jupyter"`.)
 
 `computeType` (`standard` = Fargate, `gpu` = EC2) is orthogonal — a GPU R
@@ -28,8 +28,8 @@ The node's compute node must enable interactive sessions
 The notebook server is JupyterLab, so the existing frontend talks to it over the
 same Jupyter kernel protocol (`@jupyterlab/services`). The only kernel installed
 in this image is **`ir`** (IRkernel) — there is no `python3` kernel — so the
-frontend must start the `ir` kernel for an `r` session (the launcher should pick
-the kernel name from `sessionType`).
+frontend must start the `ir` kernel for an R notebook (the app picks the
+kernel from app.yml's `runtime.kernel: r`, not from `sessionType`).
 
 ## Persisting outputs (optional follow-up)
 

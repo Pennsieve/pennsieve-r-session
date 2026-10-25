@@ -8,7 +8,10 @@ runtime:
   # A live session, not a batch step: the workflow pauses while it runs and
   # the user reaches it through the auth proxy.
   interactive: true
-  sessionType: r
+  # The kind of live session (jupyter: a notebook; this is JupyterLab with
+  # IRkernel), and the notebook's language.
+  sessionType: jupyter
+  kernel: r
   computeTypes: [standard]
 
 inputs:
