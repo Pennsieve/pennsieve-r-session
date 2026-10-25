@@ -56,7 +56,7 @@ def get_config():
         "output_dir": os.environ.get("OUTPUT_DIR", ""),
         "execution_run_id": os.environ.get("EXECUTION_RUN_ID", "unknown"),
         "task_token": os.environ.get("TASK_TOKEN", ""),
-        "session_type": os.environ.get("SESSION_TYPE", "r"),
+        "session_type": os.environ.get("SESSION_TYPE", "jupyter"),
         "region": os.environ.get("REGION", "") or os.environ.get("AWS_REGION", ""),
         "notebook_root": os.environ.get("NOTEBOOK_ROOT", default_root) or "/",
         # Bind to localhost in production (sidecar proxies); 0.0.0.0 locally so
