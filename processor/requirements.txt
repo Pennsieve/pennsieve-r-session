@@ -1,7 +1,6 @@
 # Slim runtime: JupyterLab is the notebook server (the R kernel itself is
-# IRkernel, installed via R in the Dockerfile). Heavy R/science packages should
-# live on a shared EFS layer (the `layers` mechanism), not baked into this image
-# — keeps the kernel image small and the layer reusable across sessions.
+# IRkernel, installed via R in the Dockerfile). R science packages come from the
+# user's environments (environments-service), not this image.
 jupyterlab
 boto3
 requests

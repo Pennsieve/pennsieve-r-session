@@ -6,18 +6,26 @@ FROM rocker/r-ver:4.4.1
 
 WORKDIR /app
 
-# System libraries IRkernel (and most CRAN packages) need: zmq for the kernel
-# transport, curl/ssl/xml for typical packages. Python provides JupyterLab — the
-# notebook server itself — plus the Step Functions lifecycle deps.
+# System libraries IRkernel needs (zmq for the kernel transport), and the ones
+# the packages of users' environments link against. Environments are built by
+# environments-service's R builder (builder/Dockerfile.r) on this same base with
+# the same -dev packages, so a package that loads in its build loads here. Keep
+# the two lists the same. Python provides JupyterLab — the notebook server
+# itself — plus the Step Functions lifecycle deps.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 python3-venv \
-      libzmq3-dev libcurl4-openssl-dev libssl-dev libxml2-dev \
+      libzmq3-dev \
+      libxml2-dev libcurl4-openssl-dev libssl-dev libhdf5-dev \
+      libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev \
+      libpng-dev libjpeg-dev libtiff5-dev libwebp-dev \
+      libglpk-dev libgsl-dev libicu-dev \
+      zlib1g-dev libbz2-dev liblzma-dev libzstd-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # JupyterLab + lifecycle deps in an isolated venv (avoids PEP 668 system-pip
-# restrictions and keeps a clean PATH). Heavy R science packages are NOT baked
-# in — they live on a shared EFS layer (the `layers` mechanism), keeping the
-# kernel image small and the layer reusable across sessions.
+# restrictions and keeps a clean PATH). R science packages are NOT baked in:
+# they come from the environment the user picks in the session (r/Rprofile.site
+# loads it), keeping the kernel image small.
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 COPY processor/requirements.txt /app/requirements.txt
@@ -38,9 +46,10 @@ COPY processor/ /app/processor/
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# R startup conveniences: auto-define INPUT_DIR / OUTPUT_DIR / save_output() in
-# every R session (R sources this site profile at startup), so users don't have
-# to discover the env vars. Mirrors the Python session's 00-pennsieve.py.
+# R startup: auto-define INPUT_DIR / OUTPUT_DIR / save_output() in every R
+# session, and load the session's active environment (R sources this site
+# profile at startup). Mirrors the Python session's 00-pennsieve.py and
+# 01-environment.py.
 COPY r/Rprofile.site /app/r/Rprofile.site
 ENV R_PROFILE=/app/r/Rprofile.site
 

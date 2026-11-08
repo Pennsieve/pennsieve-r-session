@@ -9,6 +9,14 @@
 #   LAYERS_DIR         mounted persistent layers, if any
 #   save_output(name)  -> path string inside OUTPUT_DIR (creates it if needed)
 #
+# It also loads the session's active environment, if the user picked one in the
+# session's side panel: the session-proxy sidecar unpacks it into
+# ENVIRONMENTS_DIR, records it in ENVIRONMENTS_DIR/active.json and restarts the
+# kernel, so this runs again. The environment's library (lib/R/library, built
+# by environments-service for this R) goes first on .libPaths(), so its
+# packages win over the image's. An environment for another language or R
+# version isn't loaded.
+#
 # Convenience + convention, not a permission boundary — the kernel can read/write
 # anywhere on the EFS mount. "input" vs "output" is the workflow contract, not an
 # enforced read-only/read-write split.
@@ -39,4 +47,38 @@ local({
     dir.create(out, recursive = TRUE, showWarnings = FALSE)
     file.path(out, name)
   }, envir = g)
+})
+
+local({
+  envs <- Sys.getenv("ENVIRONMENTS_DIR", unset = "")
+  active <- file.path(envs, "active.json")
+  if (!nzchar(envs) || !file.exists(active)) return(invisible())
+  tryCatch({
+    # The sidecar writes it with Go's json.Marshal: one line, no escapes in
+    # these fields. Parsed by hand, so no package is loaded before the
+    # environment's library is on the path.
+    json <- paste(readLines(active, warn = FALSE), collapse = "")
+    field <- function(text, name) {
+      m <- regmatches(text, regexec(sprintf('"%s":"([^"]*)"', name), text))[[1]]
+      if (length(m) == 2) m[[2]] else ""
+    }
+    runtime <- regmatches(json, regexpr('"runtime":\\{[^}]*\\}', json))
+    language <- if (length(runtime)) field(runtime, "language") else ""
+    version <- if (length(runtime)) field(runtime, "version") else ""
+    path <- field(json, "path")
+    running <- paste(R.version$major, strsplit(R.version$minor, ".", fixed = TRUE)[[1]][1], sep = ".")
+    library_dir <- file.path(path, "lib", "R", "library")
+    if (!nzchar(path)) {
+      message("Pennsieve: the session's environment record can't be read; not loaded.")
+    } else if (language != "r" || (nzchar(version) && version != running)) {
+      message("Pennsieve: environment ", field(json, "environmentId"), " is for ",
+              if (nzchar(language)) language else "another language", " ", version,
+              ", not this kernel's R ", running, "; not loaded.")
+    } else if (dir.exists(library_dir)) {
+      .libPaths(c(library_dir, .libPaths()))
+    }
+  }, error = function(e) {
+    # Never block kernel startup.
+    message("Pennsieve: could not load the session's environment: ", conditionMessage(e))
+  })
 })
