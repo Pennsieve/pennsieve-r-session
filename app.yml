@@ -14,6 +14,10 @@ runtime:
   sessionType: jupyter
   kernel: r
   computeTypes: [standard]
+  # The notebook's code assistant: on a node with LLM access, the session
+  # sidecar asks the node's LLM governor for a cell's R code, within the
+  # run's budget. Code in the session can call it too (ANTHROPIC_BASE_URL).
+  llm: true
 
 inputs:
   - name: files
